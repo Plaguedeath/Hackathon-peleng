@@ -1,0 +1,44 @@
+{
+  "error_3d_cm": {
+    "mean": 0.0,
+    "rmse": 0.0,
+    "max": 0.0,
+    "mean_abs_dx": 0.0,
+    "mean_abs_dy": 0.0,
+    "mean_abs_dz": 0.0
+  },
+  "reprojection_error_px": {
+    "mean": 0.0,
+    "rmse": 0.0,
+    "max": 0.0
+  },
+  "track_stats": {
+    "total_tracks_created": 0,
+    "total_tracks_deleted": 0,
+    "active_tracks": 0,
+    "confirmed_tracks": 0
+  },
+  "association_stats": {
+    "geometric_weight": 0.6,
+    "appearance_weight": 0.4,
+    "use_temporal": true,
+    "prev_groups_count": 0
+  },
+  "pipeline_stats": {
+    "total_frames": 3,
+    "processed_frames": 3,
+    "skipped_frames": 0,
+    "total_detections_2d": 14,
+    "total_triangulations": 0,
+    "successful_triangulations": 0,
+    "total_tracks_3d": 0,
+    "active_tracks_3d": 0,
+    "avg_fps": 0.45,
+    "avg_frame_time_ms": 2208.05,
+    "detection_time_ms": 14741.03,
+    "triangulation_time_ms": 109.99,
+    "association_time_ms": 1.24,
+    "tracking_time_ms": 0.06,
+    "visualization_time_ms": 0.0
+  }
+}

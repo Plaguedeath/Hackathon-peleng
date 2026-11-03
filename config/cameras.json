@@ -1,0 +1,92 @@
+{
+  "coordinate_system": "UE",
+  "world_frame": "camera_1",
+  "cameras": [
+    {
+      "id": 1,
+      "name": "CineCameraActor1",
+      "source": "data/Way1.FinalImage.CineCameraActor1.mp4",
+      "intrinsics": {
+        "focal_mm": 35.0,
+        "sensor_width_mm": 23.76,
+        "sensor_height_mm": 13.365,
+        "image_width": 1920,
+        "image_height": 1080
+      },
+      "extrinsics": {
+        "location_cm": [-24702, 6624, 1200],
+        "rotation_deg": [0, 0, -70],
+        "is_static": true
+      }
+    },
+    {
+      "id": 2,
+      "name": "CineCameraActor2",
+      "source": "data/Way1.FinalImage.CineCameraActor2.mp4",
+      "intrinsics": {
+        "focal_mm": 60.0,
+        "sensor_width_mm": 23.76,
+        "sensor_height_mm": 13.365,
+        "image_width": 1920,
+        "image_height": 1080
+      },
+      "extrinsics": {
+        "location_cm": [-45784, -6500, 7912],
+        "rotation_deg": [0, -10, 0],
+        "is_static": true
+      }
+    },
+    {
+      "id": 3,
+      "name": "CineCameraActor3",
+      "source": "data/Way1.FinalImage.CineCameraActor3.mp4",
+      "intrinsics": {
+        "focal_mm": 35.0,
+        "sensor_width_mm": 23.76,
+        "sensor_height_mm": 13.365,
+        "image_width": 1920,
+        "image_height": 1080
+      },
+      "extrinsics": {
+        "location_cm": [12600, -22700, 1400],
+        "rotation_deg": [-0.6776, -3.114, 115.1096],
+        "is_static": true
+      }
+    },
+    {
+      "id": 4,
+      "name": "CineCameraActor4",
+      "source": "data/Way1.FinalImage.CineCameraActor4.mp4",
+      "intrinsics": {
+        "focal_mm": 50.0,
+        "sensor_width_mm": 23.76,
+        "sensor_height_mm": 13.365,
+        "image_width": 1920,
+        "image_height": 1080
+      },
+      "extrinsics": {
+        "location_cm": [33282, 13997, 7147],
+        "rotation_deg": [0, -10, -160],
+        "is_static": true
+      }
+    },
+    {
+      "id": 5,
+      "name": "CineCameraActor5",
+      "source": "data/Way1.FinalImage.CineCameraActor5.mp4",
+      "intrinsics": {
+        "focal_mm": 20.0,
+        "sensor_width_mm": 23.76,
+        "sensor_height_mm": 13.365,
+        "image_width": 1920,
+        "image_height": 1080
+      },
+      "extrinsics": {
+        "location_cm": [9799, -3900, 1488],
+        "rotation_deg": [-4.41, -6.97, 0],
+        "is_static": false,
+        "yaw_per_frame_csv": "data/object_transform_CineCameraActor5.csv"
+      }
+    }
+  ]
+}

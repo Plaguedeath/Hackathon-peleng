@@ -1,0 +1,45 @@
+# Peleng Multi-Camera 3D Tracking Pipeline - Dependencies
+
+# Core ML/Tracking
+ultralytics>=8.2.0
+torch>=2.0.0
+torchvision>=0.15.0
+lap>=0.5.12  # Required for BoTSORT/ByteTrack Hungarian assignment
+
+# Computer Vision
+opencv-python>=4.8.0
+opencv-contrib-python>=4.8.0
+
+# Scientific Computing
+numpy>=1.24.0
+scipy>=1.11.0
+scikit-learn>=1.3.0
+scikit-image>=0.22.0
+
+# Geometry / Triangulation
+# (uses scipy, numpy)
+
+# ReID (OSNet) - version 0.2.5 is latest compatible with Python 3.14
+torchreid>=0.2.5
+
+# Visualization
+matplotlib>=3.7.0
+pillow>=10.0.0
+
+# Config
+pyyaml>=6.0.1
+
+# Utilities
+tqdm>=4.66.0
+psutil>=5.9.0
+
+# Optional: GPU acceleration
+# cupy-cuda12x  # Uncomment if using CUDA 12.x
+# faiss-gpu     # For fast nearest neighbor search
+
+# Development
+pytest>=7.4.0
+black>=23.0.0
+isort>=5.12.0
+flake8>=6.0.0
+mypy>=1.5.0

@@ -1,237 +1,286 @@
-# Hackathon-peleng — 3D Trajectory Reconstruction from Multi-Camera Video
+# Peleng Multi-Camera 3D Tracking Pipeline
 
-Автоматический пайплайн для восстановления 3D-траектории объекта (фуры/грузовика) из 5 видеокамер с последующей валидацией против Ground Truth.
+**Universal multi-object 3D tracker** built on YOLOv8 + BoTSORT + 3D Kalman filtering with epipolar geometry and ReID association.
 
-## 🎯 Суть задачи
+## 🎯 Features
 
-Дано:
-- 5 видео с камер (`Way1.FinalImage.CineCameraActor1..5.mp4`)
-- CSV с параметрами камер (экстринсики + фокус) — `object_transform_CineCameraActor*.csv`
-- Ground Truth 3D-траектория объекта — `object_transform_SM_AA_track.csv`
+- **Universal Detection**: YOLOv8 (n/s/m/l/x) with configurable classes
+- **Per-Camera 2D Tracking**: BoTSORT / ByteTrack via Ultralytics
+- **Cross-Camera Association**: Epipolar geometry + OSNet ReID + temporal consistency
+- **Robust Triangulation**: DLT / Optimal (Hartley-Sturm) / Midpoint + RANSAC
+- **3D Kalman Filtering**: CV (Constant Velocity) & CA (Constant Acceleration) models
+- **Track Management**: Tentative → Confirmed → Lost → Deleted state machine
+- **Uncertainty Propagation**: 2D covariance → 3D covariance via projection Jacobian
+- **Real-time Pipeline**: Async processing with ThreadPoolExecutor
+- **Rich Visualization**: 2D overlays, 3D trajectory animation, metrics plots
+- **Config-Driven**: Zero-code camera/setup changes via YAML/JSON
 
-Цель: обучить детектор (YOLO), найти объект на каждом кадре, триангулировать 3D-точки, сгладить траекторию и сравнить с GT.
-
-**Ключевое преимущество**: разметка вручную **не нужна** — 3D GT проецируется в 2D автоматически.
-
----
-
-## 📁 Структура проекта
+## 📁 Project Structure
 
 ```
 peleng/
-├── data/                           # Исходные данные
-│   ├── Way1.FinalImage.CineCameraActor1..5.mp4   # 5 видео
-│   ├── object_transform_CineCameraActor1..5.csv  # Параметры камер
-│   ├── object_transform_SM_AA_track.csv          # GT 3D траектория
-│   ├── labels_2d.csv              # Автогенерация 2D меток (Этап 1)
-│   └── yolo_labels/               # YOLO .txt файлы (Этап 1)
-│
-├── dataset/                        # Датасет для YOLO (Этап 2)
-│   ├── images/train/, images/val/  # Извлечённые кадры
-│   ├── labels/train/, labels/val/  # YOLO метки
-│   └── dataset.yaml
-│
-├── runs/                           # Артефакты пайплайна
-│   ├── peleng_detect/weights/best.pt    # Обученная модель
-│   ├── detections/                  # Этап 3: all_detections.csv
-│   ├── trajectory/                  # Этап 4-6: trajectory_*.csv
-│   ├── validation/                  # Этап 6: отчёты, метрики
-│   └── visualization/               # Этап 7: видео, GIF, графики
-│
-├── pipeline/                       # Альтернативная реализация (pure Python, без numpy)
-│
-├── camera_calib.py          # Ядро: калибровка, проекция 3D↔2D, триангуляция (numpy)
-├── auto_label.py            # Этап 1: авторазметка из GT
-├── prepare_dataset.py       # Этап 2: датасет для YOLO
-├── train_yolo.py            # Этап 2: обучение YOLOv8n
-├── run_inference.py         # Этап 3: инференс на 5 видео
-├── triangulate.py           # Этап 4: триангуляция 3D
-├── postprocess.py           # Этап 5: сглаживание (Сав-Голей, Калман)
-├── validate.py              # Этап 6: валидация против GT
-├── visualize.py             # Этап 7: визуализация
-└── run_pipeline.py          # Мастер-скрипт всего пайплайна
+├── config/
+│   ├── cameras.json      # Camera calibration (intrinsics/extrinsics from UE)
+│   ├── tracker.yaml      # Main pipeline configuration
+│   └── botsort.yaml      # BoTSORT tracker config
+├── src/
+│   ├── __init__.py       # Package exports
+│   ├── camera_manager.py # Camera I/O, projection, UE coordinate handling
+│   ├── detector.py       # YOLO + BoTSORT per-camera detection
+│   ├── triangulator.py   # Multi-view triangulation with RANSAC
+│   ├── associator.py     # Geometric + Appearance + Hybrid association
+│   ├── tracker3d.py      # 3D Kalman filter + track management
+│   ├── visualizer.py     # 2D/3D visualization, plots, video writer
+│   └── pipeline.py       # Main orchestration (sync/async)
+├── models/               # YOLO weights (yolov8n.pt, etc.)
+├── data/                 # Video files
+├── run.py                # CLI entry point
+├── requirements.txt
+└── README.md
 ```
 
----
+## 🚀 Quick Start
 
-## ⚙️ Установка
+### Installation
 
 ```bash
-# Python 3.12+ (есть venv в .venv312/, .venv314/)
 cd peleng
-
-# Зависимости
-pip install opencv-python numpy scipy matplotlib ultralytics torch torchvision pyyaml
-
-# Или через requirements.txt (создайте при необходимости)
+pip install -r requirements.txt
 ```
 
----
-
-## 🚀 Быстрый старт (весь пайплайн)
+### Download YOLO Model
 
 ```bash
-# Запуск этапов 4-8 (инференс → триангуляция → постобработка → валидация → визуализация)
-python run_pipeline.py
-
-# Или по одному:
-python run_inference.py          # Этап 3: детекции на видео
-python triangulate.py            # Этап 4: 3D триангуляция
-python postprocess.py            # Этап 5: сглаживание
-python validate.py               # Этап 6: метрики против GT
-python visualize.py              # Этап 7: видео, 3D GIF, графики
+# Place your trained model in models/
+# Default: models/yolov8n.pt (downloaded automatically by ultralytics on first run)
 ```
 
----
+### Configure Cameras
 
-## 📋 Подробные этапы
+Edit `config/cameras.json` with your camera calibration (Unreal Engine format):
 
-### Этап 0: Параметры видео (опционально)
-```bash
-python pipeline/extract_video_meta.py
-# → runs/metadata/video_meta.json
-```
-
-### Этап 1: Авторазметка из GT
-```bash
-python auto_label.py
-# → data/labels_2d.csv, data/yolo_labels/*.txt
-# Использует camera_calib.py для проекции 3D→2D
-```
-
-### Этап 2: Датасет + Обучение
-```bash
-python prepare_dataset.py
-# → dataset/ (images/, labels/, dataset.yaml)
-
-python train_yolo.py
-# → runs/peleng_detect/weights/best.pt
-# Параметры: epochs=20, imgsz=320, batch=1, CPU
-```
-
-### Этап 3: Инференс на видео
-```bash
-python run_inference.py [--conf 0.25] [--draw]
-# → runs/detections/cam{N}_detections.csv + all_detections.csv
-# --draw: сохраняет видео с нарисованными боксами
-```
-
-### Этап 4: Триангуляция
-```bash
-python triangulate.py
-# → runs/trajectory/trajectory_raw.csv + triangulation_log.csv
-# Использует камеры из camera_calib.py + детекции
-```
-
-### Этап 5: Постобработка
-```bash
-python postprocess.py
-# → runs/trajectory/trajectory_smooth.csv + postprocess_log.csv
-# Удаление выбросов → интерполяция → Savitzky-Golay → Kalman (forward-backward)
-```
-
-### Этап 6: Валидация
-```bash
-python validate.py [--traj runs/trajectory/trajectory_smooth.csv]
-# → runs/validation/validation_report.csv (по-кадровая 3D ошибка)
-# → runs/validation/reprojection_report.csv (репроекционная ошибка в px)
-# → runs/validation/validation_summary.json (MAE, RMSE, Max, по осям)
-```
-
-### Этап 7: Визуализация
-```bash
-python visualize.py [--max-frames 500] [--no-videos] [--no-3d] [--no-plots]
-# → runs/visualization/
-#   cam{N}_overlay.mp4      — видео с YOLO боксами + репроекциями 3D
-#   trajectory_3d.gif       — 3D анимация траектории + камеры
-#   error_plots.png         — графики ошибок
-#   summary_metrics.png     — сводный барплот метрик
-```
-
----
-
-## 📊 Ключевые метрики (Этап 6)
-
-| Метрика | Описание |
-|---------|----------|
-| **MAE (3D)** | Средняя абсолютная ошибка траектории (см/м) |
-| **RMSE (3D)** | RMS ошибка (чувствительна к выбросам) |
-| **Max Error** | Максимальное отклонение от GT |
-| **|dX|, |dY|, |dZ|** | Ошибки по осям |
-| **Reproj MAE/RMSE** | Ошибка репроекции 3D→2D (пиксели) — качество калибровки |
-
----
-
-## 🎥 Камеры (экстринсики из CSV)
-
-| Камера | Loc (X,Y,Z) см | Rot (Roll,Pitch,Yaw)° | Focal | Видит объект |
-|--------|----------------|----------------------|-------|--------------|
-| Cam1 | (-24702, 6624, 1200) | (0, 0, -70) | 35 мм | ✅ |
-| Cam2 | (-45784, -6500, 7912) | (0, -10, 0) | 60 мм | ❌ (узкий FOV) |
-| Cam3 | (12600, -22700, 1400) | (-0.68, -3.11, 115.11) | 35 мм | ✅ |
-| Cam4 | (33282, 13997, 7147) | (0, -10, -160) | 50 мм | ❌ (далеко) |
-| Cam5 | (9799, -3900, 1488) | (-4.41, -6.97, yaw меняется) | 20 мм | ✅ (широкий FOV) |
-
-> **Важно**: Cam5 вращается (yaw меняется покадрово) — экстринсики берутся по каждому кадру.
-
----
-
-## 🔧 Полезные команды
-
-```bash
-# Только валидация (если траектория уже есть)
-python validate.py --traj runs/trajectory/trajectory_raw.csv
-
-# Только визуализация без видео (быстро)
-python visualize.py --no-videos
-
-# Полный пайплайн с этапа 5 (пропуск инференса/триангуляции)
-python run_pipeline.py --from 5
-
-# Только этап 6
-python run_pipeline.py --only 6
-
-# С рисованными боксами на этапе инференса
-python run_inference.py --draw
-```
-
----
-
-## ⚠️ Риски и нюансы
-
-1. **Конвенция координат UE** — левосторонняя, обзор камеры вдоль +X. Сверять с `SM_AA_track.csv`.
-2. **Cam5 вращается** — используется покадровый yaw, остальные камеры статичны.
-3. **Cam2, Cam4 не видят объект** — триангуляция только там, где ≥2 камеры видят одновременно.
-4. **Окклузии** — объект может быть скрыт; пропуски интерполируются на Этапе 5.
-5. **CSV кодировка** — cp1251, разделитель `;`, десятичные запятые (23,76).
-
----
-
-## 📈 Ожидаемые результаты
-
-После полного запуска в `runs/validation/validation_summary.json`:
 ```json
 {
-  "error_3d_cm": {
-    "mean": 150.0,      // ~1.5 м средняя ошибка
-    "rmse": 200.0,
-    "max": 500.0,
-    "mean_abs_dx": 100.0,
-    "mean_abs_dy": 80.0,
-    "mean_abs_dz": 50.0
-  },
-  "reprojection_error_px": {
-    "mean": 8.5,        // < 10 px — хорошая калибровка
-    "rmse": 12.0,
-    "max": 35.0
-  }
+  "cameras": [
+    {
+      "id": 1,
+      "video_path": "data/cam1.mp4",
+      "intrinsics": {
+        "focal_mm": 24.0,
+        "sensor_width_mm": 36.0,
+        "sensor_height_mm": 24.0,
+        "width": 1920,
+        "height": 1080
+      },
+      "extrinsics": {
+        "location_cm": [0, 0, 300],
+        "rotation_deg": [0, -90, 0]
+      }
+    }
+  ]
 }
 ```
 
-Хорошая калибровка даёт репроекционную ошибку **< 10-15 px**. 3D ошибка зависит от базы камер и качества детекций.
+### Run Pipeline
+
+```bash
+# Basic run (sync mode)
+python run.py
+
+# Process only 100 frames
+python run.py --max-frames 100
+
+# Async mode with 4 workers (faster on multi-core)
+python run.py --async --workers 4
+
+# Disable visualization for max speed
+python run.py --no-vis
+
+# Custom config
+python run.py -c config/my_config.yaml
+
+# List available cameras
+python run.py --list-cameras
+```
+
+## ⚙️ Configuration
+
+### `config/tracker.yaml` — Main Pipeline Config
+
+```yaml
+detection:
+  model_path: "models/yolov8n.pt"
+  conf_threshold: 0.25
+  iou_threshold: 0.45
+  imgsz: 640
+  device: "cpu"           # "cuda:0" for GPU
+  tracker: "botsort"      # "botsort" | "bytetrack" | null
+  tracker_config: "config/botsort.yaml"
+  classes: null           # null = all classes, or [0, 2, 7] for specific COCO classes
+
+triangulation:
+  method: "optimal"       # "dlt" | "optimal" | "midpoint"
+  ransac: true
+  ransac_threshold_px: 2.0
+  min_views: 2
+  min_angle_deg: 1.0
+
+tracker3d:
+  motion_model: "CV"      # "CV" | "CA"
+  dt: 0.033               # frame time (1/30)
+  process_noise: 100.0
+  measurement_noise: 50.0
+  confirmation_frames: 3
+  deletion_frames: 10
+  max_lost_frames: 30
+  mahalanobis_gate: 9.488 # chi2_0.99(4)
+
+association:
+  geometric_weight: 0.6
+  appearance_weight: 0.4
+  epipolar_threshold_px: 5.0
+  appearance_threshold: 0.35
+  use_temporal: true
+  max_time_gap: 5
+
+visualization:
+  enabled: true
+  save_video: true
+  draw_2d_boxes: true
+  draw_3d_reprojection: true
+  draw_trajectory_3d: true
+  draw_plots: true
+  output_dir: "output"
+  output_fps: 30
+  max_trail_length: 100
+
+pipeline:
+  mode: "sync"            # "sync" | "async"
+  async_workers: 2
+  max_frames: -1          # -1 = all frames
+  skip_frames: 0          # process every Nth frame
+```
+
+## 🔧 Architecture Overview
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Camera 1   │     │  Camera 2   │ ... │  Camera N   │
+│  (video)    │     │  (video)    │     │  (video)    │
+└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+       │                   │                   │
+       ▼                   ▼                   ▼
+┌─────────────────────────────────────────────────────┐
+│           MultiCameraDetector (YOLO + BoTSORT)      │
+│  Per-camera 2D detection + tracking → track_id_2d  │
+└────────────────────────┬────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│                   Triangulator                       │
+│  Epipolar geometry + RANSAC → 3D points + covariance│
+└────────────────────────┬────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│                   HybridAssociator                   │
+│  Geometric (epipolar) + Appearance (OSNet ReID)     │
+│  + Temporal consistency → cross-camera matches      │
+└────────────────────────┬────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────┐
+│              MultiObjectTracker3D                    │
+│  3D Kalman Filter (CV/CA) + Hungarian assignment    │
+│  Track state machine: Tentative→Confirmed→Lost→Del  │
+└────────────────────────┬────────────────────────────┘
+                         │
+           ┌─────────────┼─────────────┐
+           ▼             ▼             ▼
+      ┌─────────┐  ┌──────────┐  ┌──────────┐
+      │ 2D Overlay│  │ 3D Traj. │  │  Plots   │
+      │ (per cam) │  │ Animation│  │ (X/Y/Z-t)│
+      └─────────┘  └──────────┘  └──────────┘
+```
+
+## 📊 Output
+
+Results saved to `output/` (configurable):
+
+```
+output/
+├── cam1_overlay.mp4      # 2D boxes + 3D reprojection
+├── cam2_overlay.mp4
+├── ...
+├── trajectory_3d.gif     # 3D animated trajectories
+├── trajectory_3d_static.png
+├── trajectories_vs_time.png
+├── velocity_vs_time.png
+├── reprojection_errors.png
+├── metrics_summary.png
+└── metrics.json          # All numeric metrics
+```
+
+## 🎯 Key Classes
+
+| Module | Class | Purpose |
+|--------|-------|---------|
+| `camera_manager` | `CameraManager` | Video I/O, UE projection, ray casting |
+| `detector` | `MultiCameraDetector` | YOLO + BoTSORT per camera |
+| `triangulator` | `Triangulator` | DLT/Optimal/Midpoint + RANSAC |
+| `associator` | `HybridAssociator` | Epipolar + ReID + Temporal fusion |
+| `tracker3d` | `MultiObjectTracker3D` | 3D Kalman + Hungarian + State machine |
+| `visualizer` | `MultiCameraVisualizer` | 2D/3D plots, video, animations |
+| `pipeline` | `MultiCameraTrackingPipeline` | Sync/Async orchestration |
+
+## 🧪 Testing
+
+```bash
+# Test camera manager
+python -c "from src.camera_manager import create_camera_manager; cm=create_camera_manager(); cm.open_all(); print('Cams:', cm.get_camera_ids()); cm.close_all()"
+
+# Test detector
+python -m src.detector
+
+# Test triangulator
+python -m src.triangulator
+
+# Test full pipeline (10 frames)
+python run.py --max-frames 10 --no-vis
+```
+
+## 📝 Retraining YOLO
+
+For better detection (current model undertrained):
+
+```bash
+# 1. Prepare data in YOLO format (images + labels)
+# 2. Create data.yaml with train/val paths and class names
+# 3. Train:
+yolo detect train data=data.yaml model=yolov8s.pt epochs=100 imgsz=640 batch=16 device=0 amp=True
+
+# 4. Copy best.pt to models/
+cp runs/detect/train/weights/best.pt models/yolov8s_custom.pt
+
+# 5. Update config/tracker.yaml model_path
+```
+
+Recommended: `yolov8s` or `yolov8m`, 640px, 100 epochs, AMP, COCO pretrained.
+
+## 🐛 Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| `ModuleNotFoundError` | `pip install -r requirements.txt` |
+| Cam3 0 detections | Check video path in `cameras.json`, verify labels overlap with FOV |
+| 3D error > 100m | Verify calibration (UE coords: X-forward, Z-up, roll inverted), check baseline |
+| Slow FPS | Use GPU (`device: cuda:0`), enable `--async`, reduce `imgsz`, disable vis |
+| BoTSORT not tracking | Ensure `tracker: botsort` and `tracker_config` points to valid YAML |
+
+## 📄 License
+
+Internal research project — Peleng.
 
 ---
 
-## 📝 Лицензия
-
-Hackathon project — internal use.
+**Built for multi-camera 3D tracking with Unreal Engine calibration data.**

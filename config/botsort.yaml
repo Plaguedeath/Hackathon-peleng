@@ -1,0 +1,19 @@
+# BoTSORT tracker configuration for Ultralytics
+# https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/trackers/botsort.yaml
+
+tracker_type: botsort
+track_high_thresh: 0.5      # High threshold for detection confidence
+track_low_thresh: 0.1       # Low threshold for detection confidence
+new_track_thresh: 0.6       # Threshold for creating new tracks
+track_buffer: 30            # Frames to keep lost tracks
+match_thresh: 0.8           # Matching threshold for first association
+proximity_thresh: 0.5       # Threshold for proximity matching
+appearance_thresh: 0.25     # Appearance embedding threshold
+with_reid: true             # Use ReID for association
+reid_model: "models/osnet_x1_0.pth"  # ReID model path
+reid_batch_size: 16
+reid_device: "cpu"
+fuse_score: true            # Fuse detection score with appearance
+fuse_first_associate: false # Fuse score for first association
+with_cluster: true          # Use clustering for multi-object
+cluster_thresh: 0.5         # Clustering threshold

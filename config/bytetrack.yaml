@@ -1,0 +1,11 @@
+# ByteTrack tracker configuration for Ultralytics
+# https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/trackers/bytetrack.yaml
+
+tracker_type: bytetrack
+track_high_thresh: 0.5      # High threshold for detection confidence
+track_low_thresh: 0.1       # Low threshold for detection confidence
+new_track_thresh: 0.6       # Threshold for creating new tracks
+track_buffer: 30            # Frames to keep lost tracks
+match_thresh: 0.8           # Matching threshold for IoU association
+proximity_thresh: 0.5       # Threshold for proximity matching
+fuse_score: true            # Fuse detection score with IoU
