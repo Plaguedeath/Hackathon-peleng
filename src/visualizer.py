@@ -48,6 +48,14 @@ class Visualizer2D:
     # История репроекций для траилов
     _reprojection_history: Dict[int, List[Tuple[float, float]]] = field(default_factory=dict)
 
+    def __post_init__(self):
+        if self.colors is None:
+            self.colors = [
+                (0, 255, 0), (255, 0, 0), (0, 0, 255),
+                (255, 255, 0), (255, 0, 255), (0, 255, 255),
+                (128, 0, 128), (0, 128, 128), (128, 128, 0)
+            ]
+
     def _get_color(self, track_id: int) -> Tuple[int, int, int]:
         return self.colors[track_id % len(self.colors)]
 

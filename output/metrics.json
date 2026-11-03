@@ -25,20 +25,20 @@
     "prev_groups_count": 0
   },
   "pipeline_stats": {
-    "total_frames": 3,
-    "processed_frames": 3,
+    "total_frames": 1001,
+    "processed_frames": 1001,
     "skipped_frames": 0,
-    "total_detections_2d": 14,
+    "total_detections_2d": 1857,
     "total_triangulations": 0,
     "successful_triangulations": 0,
     "total_tracks_3d": 0,
     "active_tracks_3d": 0,
-    "avg_fps": 0.45,
-    "avg_frame_time_ms": 2208.05,
-    "detection_time_ms": 14741.03,
-    "triangulation_time_ms": 109.99,
-    "association_time_ms": 1.24,
-    "tracking_time_ms": 0.06,
-    "visualization_time_ms": 0.0
+    "avg_fps": 7.25,
+    "avg_frame_time_ms": 137.96,
+    "detection_time_ms": 59163.66,
+    "triangulation_time_ms": 9.11,
+    "association_time_ms": 93.83,
+    "tracking_time_ms": 4.99,
+    "visualization_time_ms": 61234.11
   }
 }

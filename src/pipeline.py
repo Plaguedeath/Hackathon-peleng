@@ -123,6 +123,7 @@ class PipelineStage:
         elapsed = (time.perf_counter() - start) * 1000
         self.stats["calls"] += 1
         self.stats["total_time_ms"] += elapsed
+        self.stats["last_elapsed_ms"] = elapsed
         return result, elapsed
 
 
@@ -133,28 +134,66 @@ class DetectionStage(PipelineStage):
         super().__init__("Detection")
         self.detector = detector
 
+    def _filter_detections(self, detections_per_cam: Dict[int, CameraDetections]) -> Dict[int, CameraDetections]:
+        det_config = self.detector.config.get('detection', {})
+        classes = det_config.get('classes')
+        min_area = det_config.get('min_detection_area', 0)
+        min_conf = det_config.get('conf_threshold', 0.25)
+        result = {}
+        for cam_id, cam_dets in detections_per_cam.items():
+            filtered = []
+            for det in cam_dets.detections:
+                if det.confidence < min_conf:
+                    continue
+                if min_area > 0 and det.area < min_area:
+                    continue
+                if classes is not None:
+                    if det.class_id not in classes and det.class_name not in classes:
+                        continue
+                filtered.append(det)
+            result[cam_id] = CameraDetections(
+                cam_id, cam_dets.frame_idx, filtered, cam_dets.timestamp
+            )
+        return result
+
     def process(self, frame_data: FrameData) -> FrameData:
-        _, elapsed = self._time_it(
+        detections, elapsed = self._time_it(
             self.detector.process_all,
             frame_data.frames,
             frame_data.frame_idx,
             frame_data.timestamp
         )
-        frame_data.detections = self.detector.process_all(
-            frame_data.frames, frame_data.frame_idx, frame_data.timestamp
-        )
+        detections = self._filter_detections(detections)
+        frame_data.detections = detections
         return frame_data
 
 
 class TriangulationStage(PipelineStage):
-    """Этап триангуляции 3D точек."""
+    """Этап триангуляции 3D точек.
+
+    Использует кросс-камерные группы из AssociationStage (каждая группа уже
+    содержит TriangulationResult). Если ассоциаций нет — откатывается на
+    прямую триангуляцию детекций.
+    """
 
     def __init__(self, triangulator: Triangulator):
         super().__init__("Triangulation")
         self.triangulator = triangulator
 
     def process(self, frame_data: FrameData) -> FrameData:
-        # Extract detection lists from CameraDetections objects for triangulator
+        associations = getattr(frame_data, "associations", None) or []
+        if associations:
+            results = [
+                g.triangulation
+                for g in associations
+                if g.triangulation is not None and g.triangulation.success
+            ]
+            frame_data.triangulation_results = results
+            self.stats["calls"] += 1
+            self.stats["total_time_ms"] += 0.0
+            self.stats["last_elapsed_ms"] = 0.0
+            return frame_data
+
         detections_dict = {
             cam_id: cam_dets.detections
             for cam_id, cam_dets in frame_data.detections.items()
@@ -290,7 +329,7 @@ class MultiCameraTrackingPipeline:
         self.triangulator = create_triangulator(self.camera_manager, self.config_path)
 
         # 4. Associator
-        self.associator = create_associator(self.camera_manager, self.config_path)
+        self.associator = create_associator(self.camera_manager, self.triangulator, self.config_path)
 
         # 5. 3D Tracker
         self.tracker_3d = create_tracker3d(self.config_path)
@@ -303,10 +342,12 @@ class MultiCameraTrackingPipeline:
             self.visualizer.init_video_writers(output_dir, fps)
 
         # 7. Этапы пайплайна
+        # Ассоциация должна идти ДО триангуляции: триангулятор опирается на
+        # кросс-камерные группы ассоциатора (per-camera track_id не globals).
         self.stages = [
             DetectionStage(self.detector),
-            TriangulationStage(self.triangulator),
             AssociationStage(self.associator),
+            TriangulationStage(self.triangulator),
             Tracking3DStage(self.tracker_3d),
             VisualizationStage(self.visualizer, self.vis_config.get('enabled', True))
         ]
@@ -499,18 +540,18 @@ class MultiCameraTrackingPipeline:
                         self.reproj_errors_history[tid] = []
                     self.reproj_errors_history[tid].extend(track.reprojection_errors)
 
-        # Timing из этапов
+        # Timing из этапов (берём время последнего кадра, а не накопленное)
         for stage in self.stages:
             if stage.name == "Detection":
-                self.stats.detection_time_ms += stage.stats["total_time_ms"]
+                self.stats.detection_time_ms += stage.stats.get("last_elapsed_ms", 0.0)
             elif stage.name == "Triangulation":
-                self.stats.triangulation_time_ms += stage.stats["total_time_ms"]
+                self.stats.triangulation_time_ms += stage.stats.get("last_elapsed_ms", 0.0)
             elif stage.name == "Association":
-                self.stats.association_time_ms += stage.stats["total_time_ms"]
+                self.stats.association_time_ms += stage.stats.get("last_elapsed_ms", 0.0)
             elif stage.name == "Tracking3D":
-                self.stats.tracking_time_ms += stage.stats["total_time_ms"]
+                self.stats.tracking_time_ms += stage.stats.get("last_elapsed_ms", 0.0)
             elif stage.name == "Visualization":
-                self.stats.visualization_time_ms += stage.stats["total_time_ms"]
+                self.stats.visualization_time_ms += stage.stats.get("last_elapsed_ms", 0.0)
 
     def _estimate_total_frames(self) -> int:
         """Оценивает общее количество кадров."""

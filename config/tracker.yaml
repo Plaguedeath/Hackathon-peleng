@@ -2,70 +2,45 @@
 
 # Detection settings
 detection:
-  model_path: "models/yolov8n.pt"      # YOLO model (nano/small/medium/large)
-  conf_threshold: 0.25                 # Detection confidence threshold
-  iou_threshold: 0.45                  # NMS IoU threshold
-  classes: null                        # null = all classes, or list [0, 2, 3, 5, 7]
-  imgsz: 640                           # Inference image size
-  half: false                          # FP16 inference (requires GPU)
-  device: "cpu"                        # "cpu", "cuda", "mps"
-  tracker: "bytetrack"                 # "botsort", "bytetrack", or null for no tracking
-  tracker_config: "config/bytetrack.yaml" # Tracker config file
-
-# Triangulation settings
+    model_path: "models/yolov8s.pt"    # small — баланс качества/скорости
+    # model_path: "models/yolov8m.pt"  # если хотите максимум качества (влезет в 8GB)
+    conf_threshold: 0.25
+    iou_threshold: 0.45
+    imgsz: 640
+    device: "cuda:0"
+    half: true              # FP16 — на 2070 Super даёт ~1.7x ускорение
+    tracker: "bytetrack"
+    tracker_config: "config/bytetrack.yaml"
+    classes: null               # например [0, 2] — только person/car; null = все классы
+    min_detection_area: 0       # минимальная площадь бокса в px², чтобы отсекать мелкий шум/далекие объекта
+    batch: 4                # 4 кадра за раз — ускоряет загрузку GPU
 triangulation:
-  method: "optimal"                    # "dlt", "optimal", "midpoint"
-  min_cameras: 2                       # Minimum cameras for triangulation
-  max_reproj_error_px: 20.0            # Max reprojection error for valid triangulation
-  ransac_iterations: 100               # RANSAC for outlier rejection
-  ransac_threshold_px: 5.0             # RANSAC inlier threshold
-  use_uncertainty: true                # Propagate covariance from 2D to 3D
-
-# 3D Tracker settings
+    method: "optimal"
+    ransac: true
+    ransac_threshold_px: 2.0
+    min_views: 2
 tracker3d:
-  motion_model: "CA"                   # "CV" (constant velocity) or "CA" (constant acceleration)
-  dt: 0.03333                          # Time step (1/30 for 30 FPS)
-  process_noise:
-    position: 0.1                      # Position process noise
-    velocity: 1.0                      # Velocity process noise
-    acceleration: 5.0                  # Acceleration process noise (for CA)
-  measurement_noise: 0.5               # Base measurement noise (will be scaled by triangulation covariance)
-  gate_threshold: 9.21                 # Mahalanobis distance gate (chi2 0.99, dof=3)
-  max_misses: 30                       # Max frames without measurement before track death (~1 sec)
-  min_hits: 3                          # Min hits to confirm track
-  max_age: 1000                        # Max track age (frames)
-  iou_threshold_3d: 0.3               # 3D IoU threshold for association (if used)
-
-# Data Association settings
+    motion_model: "CV"
+    dt: 0.033
+    process_noise: 100.0
+    measurement_noise: 50.0
 association:
-  method: "hybrid"                     # "geometric", "appearance", "hybrid"
-  geometric_weight: 0.6                # Weight for geometric cost
-  appearance_weight: 0.4               # Weight for appearance cost
-  max_epipolar_distance_px: 10.0       # Max epipolar line distance
-  reid_model: "models/osnet_x1_0.pth"  # ReID model path
-  reid_threshold: 0.6                  # Cosine similarity threshold
-  use_temporal_consistency: true       # Use track history for association
-
-# Visualization settings
+    geometric_weight: 0.6
+    appearance_weight: 0.4
+    epipolar_threshold_px: 5.0
+    appearance_threshold: 0.35
+    use_temporal: true
+    reid_device: "cuda:0"   # OSNet на GPU
+    reid_model: "models/osnet_x1_0.pth"
 visualization:
-  draw_2d_boxes: true                  # Draw 2D bounding boxes
-  draw_3d_reprojection: true           # Draw 3D track reprojection on 2D
-  draw_trajectory_3d: true             # Create 3D trajectory animation
-  draw_plots: true                     # Create X/Y/Z vs time plots
-  output_fps: 30                       # Output video FPS
-  max_trail_length: 100                # Trajectory trail length in frames
-  colors:                              # Track colors (RGB)
-    - [0, 255, 0]
-    - [255, 0, 0]
-    - [0, 0, 255]
-    - [255, 255, 0]
-    - [255, 0, 255]
-    - [0, 255, 255]
-
-# Pipeline settings
+    enabled: true
+    save_video: true
+    draw_2d_boxes: true
+    draw_3d_reprojection: true
+    draw_trajectory_3d: true
+    draw_plots: true
+    output_dir: "output"
+    output_fps: 30
 pipeline:
-  batch_size: 1                        # Batch size for inference (1 for sync)
-  num_workers: 0                       # DataLoader workers
-  sync_tolerance_frames: 2             # Frame sync tolerance between cameras
-  skip_frames: 0                       # Process every N-th frame (0 = all)
-  max_queue_size: 30                   # Max frames in processing queue
+    mode: "sync"            # на GPU детектор быстрый, async не нужен
+    max_frames: -1

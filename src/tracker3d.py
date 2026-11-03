@@ -476,12 +476,21 @@ def create_tracker3d(config_path: str = None) -> MultiObjectTracker3D:
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
     t3d = config.get('tracker3d', {})
+    pn = t3d.get('process_noise', {})
+    if isinstance(pn, dict):
+        process_noise_pos = pn.get('position', 0.1)
+        process_noise_vel = pn.get('velocity', 1.0)
+        process_noise_acc = pn.get('acceleration', 5.0)
+    else:
+        process_noise_pos = float(pn)
+        process_noise_vel = float(pn)
+        process_noise_acc = float(pn)
     return MultiObjectTracker3D(
         motion_model=MotionModel(t3d.get('motion_model', 'CA')),
         dt=t3d.get('dt', 1/30),
-        process_noise_pos=t3d.get('process_noise', {}).get('position', 0.1),
-        process_noise_vel=t3d.get('process_noise', {}).get('velocity', 1.0),
-        process_noise_acc=t3d.get('process_noise', {}).get('acceleration', 5.0),
+        process_noise_pos=process_noise_pos,
+        process_noise_vel=process_noise_vel,
+        process_noise_acc=process_noise_acc,
         measurement_noise=t3d.get('measurement_noise', 0.5),
         gate_threshold=t3d.get('gate_threshold', 9.21),
         max_misses=t3d.get('max_misses', 30),
