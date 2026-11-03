@@ -1,0 +1,5 @@
+path: C:\new\code stuff\pr\peleng\dataset
+train: images/train
+val: images/val
+nc: 1
+names: ['object']
