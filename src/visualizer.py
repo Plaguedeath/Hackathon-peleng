@@ -16,10 +16,10 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation as animation
 
-from camera_manager import CameraManager, Camera
-from detector import Detection2D, CameraDetections
-from tracker3d import Track3D
-from triangulator import TriangulationResult
+from .camera_manager import CameraManager, Camera
+from .detector import Detection2D, CameraDetections
+from .tracker3d import Track3D
+from .triangulator import TriangulationResult
 
 
 # =============================================================================

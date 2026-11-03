@@ -11,8 +11,8 @@ from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 from scipy.optimize import minimize
 
-from camera_manager import CameraManager, Camera
-from detector import Detection2D
+from .camera_manager import CameraManager, Camera
+from .detector import Detection2D
 
 
 # =============================================================================

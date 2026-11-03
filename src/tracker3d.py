@@ -12,7 +12,7 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
 
-from triangulator import TriangulationResult
+from .triangulator import TriangulationResult
 
 
 # =============================================================================

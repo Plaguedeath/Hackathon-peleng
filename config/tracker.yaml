@@ -41,6 +41,25 @@ visualization:
     draw_plots: true
     output_dir: "output"
     output_fps: 30
+
+# GT Correction
+# GT trajectory tracks truck pivot (rear axle, ground level ~300cm).
+# Visual center in image is cabin roof (~350-400cm above ground).
+# Add Z-offset to project to visual center for all camera angles.
+gt_correction:
+    z_offset_cm: 350.0      # поднимем GT точку на 3.5м (cabin roof height)
+    apply_to_triangulation: false  # только для валидации/авторазметки
+    apply_to_validation: true
+
+# Monocular Depth Estimation (для кадров с 1 камерой)
+monocular_depth:
+    enabled: true
+    min_confidence: 0.3
+    max_z_cm: 20000.0
+    min_z_cm: 500.0
+    truck_height_cm: 350.0
+    truck_width_cm: 250.0
+    truck_length_cm: 650.0
 pipeline:
     mode: "sync"            # на GPU детектор быстрый, async не нужен
     max_frames: -1

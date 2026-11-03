@@ -14,9 +14,9 @@ import cv2
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
 
-from camera_manager import CameraManager
-from detector import Detection2D, CameraDetections
-from triangulator import Observation2D, TriangulationResult, create_triangulator
+from .camera_manager import CameraManager
+from .detector import Detection2D, CameraDetections
+from .triangulator import Observation2D, TriangulationResult, create_triangulator
 
 
 # =============================================================================

@@ -17,12 +17,13 @@ import queue
 import numpy as np
 import yaml
 
-from camera_manager import CameraManager, create_camera_manager
-from detector import MultiCameraDetector, create_multi_camera_detector, CameraDetections, Detection2D
-from triangulator import Triangulator, create_triangulator, TriangulationResult
-from associator import HybridAssociator, create_associator
-from tracker3d import MultiObjectTracker3D, create_tracker3d, Track3D
-from visualizer import MultiCameraVisualizer, create_visualizer
+from .camera_manager import CameraManager, create_camera_manager
+from .detector import MultiCameraDetector, create_multi_camera_detector, CameraDetections, Detection2D
+from .triangulator import Triangulator, create_triangulator, TriangulationResult
+from .associator import HybridAssociator, create_associator
+from .tracker3d import MultiObjectTracker3D, create_tracker3d, Track3D
+from .visualizer import MultiCameraVisualizer, create_visualizer
+from .monocular_depth import create_monocular_depth_estimator, MultiCameraMonocularDepth, DepthEstimate
 
 # Настройка логирования
 logging.basicConfig(
@@ -207,6 +208,52 @@ class TriangulationStage(PipelineStage):
         return frame_data
 
 
+class MonocularDepthStage(PipelineStage):
+    """Этап моноскулрной оценки глубины для одиночных камер.
+
+    Когда триангуляция невозможна (менее 2 камер видят объект),
+    использует размер бокса + известные размеры грузовика для оценки Z.
+    Добавляет моноскулрные 3D точки к результатам триангуляции.
+    """
+
+    def __init__(self, mono_depth: MultiCameraMonocularDepth, enabled: bool = True):
+        super().__init__("MonocularDepth")
+        self.mono_depth = mono_depth
+        self.enabled = enabled
+
+    def process(self, frame_data: FrameData) -> FrameData:
+        if not self.enabled:
+            return frame_data
+
+        existing_triang = frame_data.triangulation_results or []
+
+        detections_dict = {
+            cam_id: cam_dets.detections
+            for cam_id, cam_dets in frame_data.detections.items()
+        }
+
+        mono_results = self.mono_depth.process_single_camera_detections(
+            detections_dict, frame_data.frame_idx
+        )
+
+        from types import SimpleNamespace
+        for cam_id, cam_results in mono_results.items():
+            for track_id, point_3d, depth_est in cam_results:
+                mono_tri = SimpleNamespace(
+                    point_3d=point_3d,
+                    success=True,
+                    method="monocular",
+                    cam_id=cam_id,
+                    track_id=track_id,
+                    covariance=np.eye(3) * (1000.0 / max(depth_est.confidence, 0.1))**2,
+                    depth_estimate=depth_est
+                )
+                existing_triang.append(mono_tri)
+
+        frame_data.triangulation_results = existing_triang
+        return frame_data
+
+
 class AssociationStage(PipelineStage):
     """Этап ассоциации между камерами."""
 
@@ -328,6 +375,9 @@ class MultiCameraTrackingPipeline:
         # 3. Triangulator
         self.triangulator = create_triangulator(self.camera_manager, self.config_path)
 
+        # 3.5. Monocular Depth Estimator
+        self.mono_depth = create_monocular_depth_estimator(self.camera_manager, self.config_path)
+
         # 4. Associator
         self.associator = create_associator(self.camera_manager, self.triangulator, self.config_path)
 
@@ -344,10 +394,12 @@ class MultiCameraTrackingPipeline:
         # 7. Этапы пайплайна
         # Ассоциация должна идти ДО триангуляции: триангулятор опирается на
         # кросс-камерные группы ассоциатора (per-camera track_id не globals).
+        # MonocularDepthStage после триангуляции для одиночных камер.
         self.stages = [
             DetectionStage(self.detector),
             AssociationStage(self.associator),
             TriangulationStage(self.triangulator),
+            MonocularDepthStage(self.mono_depth, self.config.get('monocular_depth', {}).get('enabled', True)),
             Tracking3DStage(self.tracker_3d),
             VisualizationStage(self.visualizer, self.vis_config.get('enabled', True))
         ]
@@ -548,6 +600,9 @@ class MultiCameraTrackingPipeline:
                 self.stats.triangulation_time_ms += stage.stats.get("last_elapsed_ms", 0.0)
             elif stage.name == "Association":
                 self.stats.association_time_ms += stage.stats.get("last_elapsed_ms", 0.0)
+            elif stage.name == "MonocularDepth":
+                # Можно добавить отдельное поле в stats если нужно
+                pass
             elif stage.name == "Tracking3D":
                 self.stats.tracking_time_ms += stage.stats.get("last_elapsed_ms", 0.0)
             elif stage.name == "Visualization":
