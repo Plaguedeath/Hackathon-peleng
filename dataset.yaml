@@ -1,0 +1,7 @@
+path: D:/code stuff 2/pr/peleng/Hackathon-peleng/data
+
+train: train/images
+val: val/images
+
+nc: 1
+names: ['object']
