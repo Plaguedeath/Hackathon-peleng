@@ -120,8 +120,12 @@ def build_intrinsics(
 # ===========================================================================
 
 def _rotation_matrix(roll_deg: float, pitch_deg: float, yaw_deg: float) -> np.ndarray:
-    """R = Rz(yaw) @ Ry(pitch) @ Rx(roll) — типично для Unreal Engine."""
-    r, p, y = map(math.radians, (roll_deg, pitch_deg, yaw_deg))
+    """R = Rz(yaw) @ Ry(pitch) @ Rx(roll) — типично для Unreal Engine.
+    
+    Важно: UE конвенция Roll наоборот — положительный Roll = правое крыло ВНИЗ.
+    Наша Rx матрица поворачивает +Y к +Z (правое крыло ВВЕРХ) при положительном угле.
+    Поэтому Roll нужно инвертировать: roll_ue = -roll_csv."""
+    r, p, y = map(math.radians, (-roll_deg, pitch_deg, yaw_deg))
     cr, sr = math.cos(r), math.sin(r)
     cp, sp = math.cos(p), math.sin(p)
     cy, sy = math.cos(y), math.sin(y)

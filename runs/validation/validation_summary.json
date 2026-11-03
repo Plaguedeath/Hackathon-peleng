@@ -1,0 +1,22 @@
+{
+  "trajectory_file": "C:\\new\\code stuff\\pr\\peleng\\runs\\trajectory\\trajectory_smooth.csv",
+  "common_frames": 111,
+  "gt_only_frames": 889,
+  "traj_only_frames": 0,
+  "error_3d_cm": {
+    "mean": 19472.38901043993,
+    "median": 17582.254203374272,
+    "rmse": 20091.312527316033,
+    "std": 4948.424526693765,
+    "max": 30102.08910022425,
+    "mean_abs_dx": 10004.934195495496,
+    "mean_abs_dy": 13725.498647747749,
+    "mean_abs_dz": 1172.0965702702701
+  },
+  "reprojection_error_px": {
+    "mean": 188.02304592035847,
+    "rmse": 206.34596435064213,
+    "max": 268.0852937518926,
+    "n_measurements": 5
+  }
+}

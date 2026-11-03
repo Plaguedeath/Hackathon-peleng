@@ -25,9 +25,9 @@ RUNS_DIR = ROOT / "runs"
 
 MODEL_NAME = "yolov8n.pt"   # nano — минимум ресурсов
 EPOCHS = 20                 # для CPU — достаточно для проверки; можно увеличить
-IMG_SIZE = 640
-BATCH = 8                   # на CPU tenere меньше, чтобы не забить память
-WORKERS = 2
+IMG_SIZE = 320
+BATCH = 1                   # минимум из-за критически мало памяти (1 GB free)
+WORKERS = 0
 
 
 def main() -> None:
@@ -50,11 +50,12 @@ def main() -> None:
         imgsz=IMG_SIZE,
         batch=BATCH,
         workers=WORKERS,
-        device="cpu",        # явно CPU (в системе нет GPU)
+        device="cpu",
         project=str(RUNS_DIR),
         name="peleng_detect",
         exist_ok=True,
         verbose=True,
+        amp=False,  # отключаем AMP для экономии памяти
     )
 
     # валидация на выборке val
