@@ -237,8 +237,17 @@ class MonocularDepthStage(PipelineStage):
         )
 
         from types import SimpleNamespace
+        from .triangulator import Observation2D
         for cam_id, cam_results in mono_results.items():
             for track_id, point_3d, depth_est in cam_results:
+                # Create a fake observation for the monocular result
+                mono_obs = Observation2D(
+                    cam_id=cam_id,
+                    u=0, v=0,  # Will be filled from detection
+                    confidence=depth_est.confidence,
+                    track_id=track_id,
+                    frame_idx=frame_data.frame_idx
+                )
                 mono_tri = SimpleNamespace(
                     point_3d=point_3d,
                     success=True,
@@ -246,7 +255,8 @@ class MonocularDepthStage(PipelineStage):
                     cam_id=cam_id,
                     track_id=track_id,
                     covariance=np.eye(3) * (1000.0 / max(depth_est.confidence, 0.1))**2,
-                    depth_estimate=depth_est
+                    depth_estimate=depth_est,
+                    observations=[mono_obs]
                 )
                 existing_triang.append(mono_tri)
 
@@ -290,7 +300,8 @@ class Tracking3DStage(PipelineStage):
             frame_data.triangulation_results,
             frame_data.frame_idx
         )
-        frame_data.tracks_3d = tracks
+        # tracker.step() returns List[Track3D], but visualizer expects Dict[int, Track3D]
+        frame_data.tracks_3d = {t.track_id: t for t in tracks}
         return frame_data
 
 
@@ -356,8 +367,9 @@ class MultiCameraTrackingPipeline:
 
         # Thread pool для асинхронной обработки
         self._executor: Optional[ThreadPoolExecutor] = None
-        self._frame_queue: queue.Queue = queue.Queue(maxsize=10)
-        self._result_queue: queue.Queue = queue.Queue(maxsize=10)
+        # Larger queue with blocking put for natural backpressure
+        self._frame_queue: queue.Queue = queue.Queue(maxsize=100)
+        self._result_queue: queue.Queue = queue.Queue(maxsize=100)
         self._worker_thread: Optional[threading.Thread] = None
 
     def initialize(self):
@@ -505,18 +517,18 @@ class MultiCameraTrackingPipeline:
                     detections={}
                 )
 
-                try:
-                    self._frame_queue.put(frame_data, timeout=1.0)
-                except queue.Full:
-                    logger.warning("Очередь полна, пропуск кадра")
-                    self.stats.skipped_frames += 1
+                # Blocking put - natural backpressure, slows down reader to match processing speed
+                self._frame_queue.put(frame_data)
 
                 self.frame_idx += 1
                 self.stats.total_frames += 1
 
+            # Wait for all frames to be processed before signaling stop
+            while not self._frame_queue.empty():
+                time.sleep(0.1)
             # Сигнал завершения
             self._frame_queue.put(None)
-            self._worker_thread.join(timeout=30.0)
+            self._worker_thread.join(timeout=120.0)  # Increased timeout
 
         except KeyboardInterrupt:
             logger.info("Прервано пользователем")
@@ -535,6 +547,15 @@ class MultiCameraTrackingPipeline:
             try:
                 frame_data = self._frame_queue.get(timeout=1.0)
                 if frame_data is None:
+                    # Process remaining frames in queue before exiting
+                    while not self._frame_queue.empty():
+                        frame_data = self._frame_queue.get_nowait()
+                        frame_start = time.perf_counter()
+                        for stage in self.stages[:-1]:
+                            if not self.running:
+                                break
+                            frame_data = stage.process(frame_data)
+                        self._result_queue.put((frame_data, frame_start))
                     break
 
                 frame_start = time.perf_counter()
@@ -544,6 +565,10 @@ class MultiCameraTrackingPipeline:
                     if not self.running:
                         break
                     frame_data = stage.process(frame_data)
+
+                frame_time_ms = (time.perf_counter() - frame_start) * 1000
+                self.stats.frame_times.append(frame_time_ms)
+                self.stats.total_time_ms += frame_time_ms
 
                 # Визуализация в главном потоке (OpenCV не thread-safe)
                 self._result_queue.put((frame_data, frame_start))
@@ -562,6 +587,7 @@ class MultiCameraTrackingPipeline:
 
     def _collect_stats(self, frame_data: FrameData):
         """Собирает статистику после обработки кадра."""
+        self.stats.processed_frames += 1
         self.stats.total_detections_2d += sum(
             len(d.detections) for d in frame_data.detections.values()
         )
@@ -573,24 +599,31 @@ class MultiCameraTrackingPipeline:
             )
 
         if frame_data.tracks_3d:
+            # Handle both list and dict formats
+            if isinstance(frame_data.tracks_3d, list):
+                tracks_dict = {t.track_id: t for t in frame_data.tracks_3d}
+            else:
+                tracks_dict = frame_data.tracks_3d
+
             self.stats.total_tracks_3d = max(
                 self.stats.total_tracks_3d,
-                max(frame_data.tracks_3d.keys(), default=0)
+                max(tracks_dict.keys(), default=0)
             )
             self.stats.active_tracks_3d = sum(
-                1 for t in frame_data.tracks_3d.values() if t.is_active()
+                1 for t in tracks_dict.values() if t.is_active()
             )
 
             # Обновляем историю треков
-            for tid, track in frame_data.tracks_3d.items():
+            for tid, track in tracks_dict.items():
                 self.tracks_history[tid] = track
 
             # Репроекционные ошибки
-            for tid, track in frame_data.tracks_3d.items():
-                if track.reprojection_errors:
+            for tid, track in tracks_dict.items():
+                reproj_errors = getattr(track, 'reprojection_errors', None)
+                if reproj_errors:
                     if tid not in self.reproj_errors_history:
                         self.reproj_errors_history[tid] = []
-                    self.reproj_errors_history[tid].extend(track.reprojection_errors)
+                    self.reproj_errors_history[tid].extend(reproj_errors)
 
         # Timing из этапов (берём время последнего кадра, а не накопленное)
         for stage in self.stages:

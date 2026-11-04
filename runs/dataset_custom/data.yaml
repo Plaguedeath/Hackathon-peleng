@@ -1,6 +1,0 @@
-names:
-- truck
-nc: 1
-path: C:\new\code stuff\pr\peleng\runs\dataset_custom
-train: images/train
-val: images/val

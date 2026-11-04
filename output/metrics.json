@@ -13,10 +13,10 @@
     "max": 0.0
   },
   "track_stats": {
-    "total_tracks_created": 0,
+    "total_tracks_created": 50,
     "total_tracks_deleted": 0,
-    "active_tracks": 0,
-    "confirmed_tracks": 0
+    "active_tracks": 2,
+    "confirmed_tracks": 1
   },
   "association_stats": {
     "geometric_weight": 0.6,
@@ -26,19 +26,19 @@
   },
   "pipeline_stats": {
     "total_frames": 1001,
-    "processed_frames": 1001,
+    "processed_frames": 2002,
     "skipped_frames": 0,
-    "total_detections_2d": 1857,
-    "total_triangulations": 0,
-    "successful_triangulations": 0,
-    "total_tracks_3d": 0,
-    "active_tracks_3d": 0,
-    "avg_fps": 7.25,
-    "avg_frame_time_ms": 137.96,
-    "detection_time_ms": 59163.66,
-    "triangulation_time_ms": 9.11,
-    "association_time_ms": 93.83,
-    "tracking_time_ms": 4.99,
-    "visualization_time_ms": 61234.11
+    "total_detections_2d": 925,
+    "total_triangulations": 925,
+    "successful_triangulations": 925,
+    "total_tracks_3d": 49,
+    "active_tracks_3d": 1,
+    "avg_fps": 2.39,
+    "avg_frame_time_ms": 838.47,
+    "detection_time_ms": 720790.05,
+    "triangulation_time_ms": 11.32,
+    "association_time_ms": 35.2,
+    "tracking_time_ms": 246.78,
+    "visualization_time_ms": 89401.46
   }
 }

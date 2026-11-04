@@ -164,7 +164,8 @@ class KalmanFilter3D:
         z = measurement.reshape(-1, 1)
         y = z - self.H @ self.x.reshape(-1, 1)
         S = self.H @ self.P @ self.H.T + R
-        return float(y.T @ np.linalg.inv(S) @ y)
+        mahal = y.T @ np.linalg.inv(S) @ y
+        return float(mahal.item() if hasattr(mahal, 'item') else mahal[0, 0])
 
 
 # =============================================================================

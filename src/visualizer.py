@@ -259,9 +259,12 @@ class Visualizer3D:
         ax.set_title('3D Trajectories (Static)')
         ax.legend()
 
-        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        # Ensure path uses forward slashes for cross-platform compatibility
+        save_path = Path(output_path).resolve()
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path.as_posix(), dpi=150, bbox_inches='tight')
         plt.close(fig)
-        print(f"[Visualizer3D] Сохранён статичный график: {output_path}")
+        print(f"[Visualizer3D] Сохранён статичный график: {save_path}")
 
 
 # =============================================================================
@@ -308,9 +311,11 @@ class VisualizerPlots:
             ax.grid(True, alpha=0.3)
 
         plt.tight_layout()
-        plt.savefig(output_path, dpi=150)
+        save_path = Path(output_path).resolve()
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path.as_posix(), dpi=150)
         plt.close(fig)
-        print(f"[VisualizerPlots] Сохранён график траекторий: {output_path}")
+        print(f"[VisualizerPlots] Сохранён график траекторий: {save_path}")
 
     def plot_velocity_vs_time(
         self,

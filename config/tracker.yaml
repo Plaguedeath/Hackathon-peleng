@@ -4,16 +4,16 @@
 detection:
     model_path: "models/yolov8s.pt"    # small — баланс качества/скорости
     # model_path: "models/yolov8m.pt"  # если хотите максимум качества (влезет в 8GB)
-    conf_threshold: 0.25
+    conf_threshold: 0.15              # lowered to catch distant/oblique views (Cam5: 0.103)
     iou_threshold: 0.45
     imgsz: 640
-    device: "cuda:0"
-    half: true              # FP16 — на 2070 Super даёт ~1.7x ускорение
+    device: "cpu"
+    half: false              # FP16 — только на GPU
     tracker: "bytetrack"
     tracker_config: "config/bytetrack.yaml"
-    classes: null               # например [0, 2] — только person/car; null = все классы
-    min_detection_area: 0       # минимальная площадь бокса в px², чтобы отсекать мелкий шум/далекие объекта
-    batch: 4                # 4 кадра за раз — ускоряет загрузку GPU
+    classes: [2, 5, 7]                # только транспорт: 2=car, 5=bus, 7=truck
+    min_detection_area: 500           # lower to allow smaller distant detections
+    batch: 1                # batch size для CPU
 triangulation:
     method: "optimal"
     ransac: true
@@ -30,7 +30,7 @@ association:
     epipolar_threshold_px: 5.0
     appearance_threshold: 0.35
     use_temporal: true
-    reid_device: "cuda:0"   # OSNet на GPU
+    reid_device: "cpu"   # OSNet на CPU
     reid_model: "models/osnet_x1_0.pth"
 visualization:
     enabled: true
